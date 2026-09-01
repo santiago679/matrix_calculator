@@ -1,0 +1,14 @@
+# Byte-compiled / optimized files
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Entorno de la calculadora: datos generados en ejecución
+historial.txt
