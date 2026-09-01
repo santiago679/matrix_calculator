@@ -1,11 +1,28 @@
 import datetime
-import random
+import tkinter as tk
+from tkinter import ttk, messagebox
+
 
 class Matrix:
+    """Representa una matriz numérica con operaciones matriciales.
+
+    Almacena los datos como una lista de listas y proporciona operaciones
+    matriciales básicas (suma, resta, multiplicación, etc.) y avanzadas
+    (determinante, inversa, adjunta, ...).
+    """
+
     def __init__(self, data):
+        """Crea una matriz a partir de una lista de listas.
+
+        Args:
+            data: Lista de listas con los valores de cada fila.
+
+        Raises:
+            ValueError: Si la matriz está vacía o las filas tienen
+                longitudes diferentes.
+        """
         if not data or not data[0]:
             raise ValueError("La matriz no puede estar vacía.")
-        # Validar que todas las filas tengan la misma longitud
         columns = len(data[0])
         for row in data:
             if len(row) != columns:
@@ -15,118 +32,164 @@ class Matrix:
         self.columns = len(self.data[0])
 
     def __str__(self):
+        """Devuelve la matriz formateada como texto alineado por columnas."""
         return "\n".join("\t".join(f"{x:8.4f}" for x in row) for row in self.data)
 
     def _validate_size(self, other):
+        """Valida que otra matriz tenga las mismas dimensiones (alto/ancho).
+
+        Raises:
+            ValueError: Si las dimensiones no coinciden.
+        """
         if self.rows != other.rows or self.columns != other.columns:
             raise ValueError(
-                f"Tamaños incompatibles: ({self.rows}x{self.columns}) vs ({other.rows}x{other.columns})"
+                f"Dimensiones incompatibles: ({self.rows}x{self.columns}) vs ({other.rows}x{other.columns})"
             )
 
     def is_square(self):
+        """Indica si la matriz es cuadrada (mismo número de filas y columnas)."""
         return self.rows == self.columns
 
-    # Operaciones binarias
     def add(self, other):
+        """Suma elemento a elemento esta matriz con otra.
+
+        Raises:
+            ValueError: Si las dimensiones no coinciden.
+        """
         self._validate_size(other)
-        result = [
+        return Matrix([
             [self.data[i][j] + other.data[i][j] for j in range(self.columns)]
             for i in range(self.rows)
-        ]
-        return Matrix(result)
+        ])
 
     def subtract(self, other):
+        """Resta elemento a elemento otra matriz a esta.
+
+        Raises:
+            ValueError: Si las dimensiones no coinciden.
+        """
         self._validate_size(other)
-        result = [
+        return Matrix([
             [self.data[i][j] - other.data[i][j] for j in range(self.columns)]
             for i in range(self.rows)
-        ]
-        return Matrix(result)
+        ])
 
     def multiply(self, other):
+        """Multiplicación matricial (producto fila × columna).
+
+        Raises:
+            ValueError: Si las dimensiones no son compatibles
+                (columnas de esta != filas de la otra).
+        """
         if self.columns != other.rows:
             raise ValueError(
-                f"Dimensiones incompatibles: ({self.rows}x{self.columns}) y ({other.rows}x{other.columns})"
+                f"Dimensiones incompatibles para multiplicación: "
+                f"({self.rows}x{self.columns}) * ({other.rows}x{other.columns})"
             )
-        result = [[0.0 for _ in range(other.columns)] for _ in range(self.rows)]
+        result = [[0.0] * other.columns for _ in range(self.rows)]
         for i in range(self.rows):
             for j in range(other.columns):
-                total = 0.0
-                for k in range(self.columns):
-                    total += self.data[i][k] * other.data[k][j]
-                result[i][j] = total
+                result[i][j] = sum(self.data[i][k] * other.data[k][j] for k in range(self.columns))
         return Matrix(result)
 
-    def element_multiply(self, other):
-        self._validate_size(other)
-        result = [
-            [self.data[i][j] * other.data[i][j] for j in range(self.columns)]
-            for i in range(self.rows)
-        ]
-        return Matrix(result)
-
-    def element_divide(self, other):
-        self._validate_size(other)
-        result = []
-        for i in range(self.rows):
-            row = []
-            for j in range(self.columns):
-                if other.data[i][j] == 0:
-                    raise ZeroDivisionError(f"División por cero en ({i+1}, {j+1})")
-                row.append(self.data[i][j] / other.data[i][j])
-            result.append(row)
-        return Matrix(result)
-
-    # Operaciones unarias
     def scalar_multiply(self, scalar):
-        result = [
+        """Multiplica todos los elementos de la matriz por un escalar."""
+        return Matrix([
             [self.data[i][j] * scalar for j in range(self.columns)]
             for i in range(self.rows)
-        ]
-        return Matrix(result)
+        ])
 
     def transpose(self):
-        result = [
+        """Devuelve la transpuesta de la matriz (intercambia filas por columnas)."""
+        return Matrix([
             [self.data[i][j] for i in range(self.rows)]
             for j in range(self.columns)
-        ]
-        return Matrix(result)
+        ])
+
+    def trace(self):
+        """Calcula la traza: suma de los elementos de la diagonal principal.
+
+        Raises:
+            ValueError: Si la matriz no es cuadrada.
+        """
+        if not self.is_square():
+            raise ValueError("La matriz debe ser cuadrada para calcular la traza.")
+        return sum(self.data[i][i] for i in range(self.rows))
 
     def determinant(self):
+        """Calcula el determinante por expansión de cofactores (recursivo).
+
+        Raises:
+            ValueError: Si la matriz no es cuadrada.
+        """
         if not self.is_square():
-            raise ValueError("La matriz debe ser cuadrada para calcular determinante.")
+            raise ValueError("La matriz debe ser cuadrada para calcular el determinante.")
         return self._determinant_recursive(self.data)
 
-    def _determinant_recursive(self, matrix):
+    @staticmethod
+    def _determinant_recursive(matrix):
+        """Función auxiliar recursiva para calcular el determinante.
+
+        Aplica expansión de cofactores sobre la primera fila. Es un método
+        estático porque no depende del estado de ninguna instancia.
+
+        Args:
+            matrix: Lista de listas (datos) de la matriz cuadrada.
+
+        Returns:
+            El determinante como número flotante.
+        """
         n = len(matrix)
         if n == 1:
             return matrix[0][0]
         if n == 2:
             return matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0]
-        
-        det = 0
+        det = 0.0
         for j in range(n):
-            submatrix = [[matrix[i][k] for k in range(n) if k != j] for i in range(1, n)]
-            det += matrix[0][j] * ((-1) ** j) * self._determinant_recursive(submatrix)
+            submatrix = [
+                [matrix[i][k] for k in range(n) if k != j]
+                for i in range(1, n)
+            ]
+            det += matrix[0][j] * ((-1) ** j) * Matrix._determinant_recursive(submatrix)
         return det
 
-    def inverse(self):
+    def adjoint(self):
+        """Calcula la matriz adjunta (transpuesta de la matriz de cofactores).
+
+        Raises:
+            ValueError: Si la matriz no es cuadrada.
+        """
         if not self.is_square():
-            raise ValueError("La matriz debe ser cuadrada para calcular inversa.")
-        
+            raise ValueError("La matriz debe ser cuadrada para calcular la adjunta.")
+        n = self.rows
+        if n == 1:
+            return Matrix([[1.0]])
+        cofactors = [[0.0] * n for _ in range(n)]
+        for i in range(n):
+            for j in range(n):
+                minor = [
+                    [self.data[r][c] for c in range(n) if c != j]
+                    for r in range(n) if r != i
+                ]
+                cofactors[i][j] = ((-1) ** (i + j)) * Matrix._determinant_recursive(minor)
+        return Matrix(cofactors).transpose()
+
+    def inverse(self):
+        """Calcula la matriz inversa mediante eliminación de Gauss-Jordan.
+
+        Raises:
+            ValueError: Si la matriz no es cuadrada, es singular
+                (determinante = 0) o no tiene pivote válido.
+        """
+        if not self.is_square():
+            raise ValueError("La matriz debe ser cuadrada para calcular la inversa.")
         det = self.determinant()
         if det == 0:
             raise ValueError("La matriz es singular (determinante = 0), no tiene inversa.")
-        
         n = self.rows
-        # Matriz identidad
         identity = [[1.0 if i == j else 0.0 for j in range(n)] for i in range(n)]
-        # Copia de la matriz original
         copy = [row[:] for row in self.data]
-        
-        # Eliminación Gauss-Jordan
         for i in range(n):
-            # Buscar pivote
             pivot = copy[i][i]
             if pivot == 0:
                 for k in range(i + 1, n):
@@ -137,137 +200,28 @@ class Matrix:
                         break
                 else:
                     raise ValueError("La matriz no es invertible.")
-            
-            # Normalizar fila
             for j in range(n):
                 copy[i][j] /= pivot
                 identity[i][j] /= pivot
-            
-            # Eliminar otras filas
             for k in range(n):
                 if k != i:
                     factor = copy[k][i]
                     for j in range(n):
                         copy[k][j] -= factor * copy[i][j]
                         identity[k][j] -= factor * identity[i][j]
-        
         return Matrix(identity)
 
-    def power(self, exponent):
-        if not self.is_square():
-            raise ValueError("La matriz debe ser cuadrada para elevar a potencia.")
-        if exponent < 0:
-            raise ValueError("El exponente debe ser un entero no negativo.")
-        if exponent == 0:
-            # Matriz identidad del mismo tamaño
-            identity = [[1.0 if i == j else 0.0 for j in range(self.columns)] for i in range(self.rows)]
-            return Matrix(identity)
-        
-        result = Matrix([row[:] for row in self.data])
-        for _ in range(1, exponent):
-            result = result.multiply(self)
-        return result
-
-# Funciones de entrada con validaciones robustas
-def read_number(message):
-    """Lee un número (float o int) con validación."""
-    while True:
-        try:
-            value = input(message).strip()
-            if not value:
-                print("Error: no puede ingresar un valor vacío.")
-                continue
-            # Intentar como int primero, luego como float
-            if '.' in value:
-                return float(value)
-            return int(value)
-        except ValueError:
-            print("Error: debe ingresar un número válido (ej. 5 o 3.14).")
-
-def read_positive_integer(message):
-    """Lee un entero positivo con validación."""
-    while True:
-        try:
-            value = input(message).strip()
-            if not value:
-                print("Error: no puede ingresar un valor vacío.")
-                continue
-            num = int(value)
-            if num <= 0:
-                print("Error: debe ser un número positivo (mayor a 0).")
-                continue
-            return num
-        except ValueError:
-            print("Error: debe ingresar un número entero (ej. 3).")
-
-def read_non_negative_integer(message):
-    """Lee un entero no negativo (0 o positivo) con validación."""
-    while True:
-        try:
-            value = input(message).strip()
-            if not value:
-                print("Error: no puede ingresar un valor vacío.")
-                continue
-            num = int(value)
-            if num < 0:
-                print("Error: debe ser un número no negativo (0 o mayor).")
-                continue
-            return num
-        except ValueError:
-            print("Error: debe ingresar un número entero (ej. 2).")
-
-def read_yes_no_option(message):
-    """Lee una respuesta sí/no con validación."""
-    while True:
-        response = input(message).strip().lower()
-        if response in ['s', 'n', 'si', 'no']:
-            return response in ['s', 'si']
-        print("Error: responda 's' (sí) o 'n' (no).")
-
-def read_menu_option(message):
-    """Lee una opción del menú con validación básica."""
-    while True:
-        option = input(message).strip()
-        if option:
-            return option
-        print("Error: no puede ingresar un valor vacío.")
-
-def create_manual_matrix():
-    """Crea una matriz con entrada manual celda por celda."""
-    print("\n--- Creación manual ---")
-    rows = read_positive_integer("Filas: ")
-    columns = read_positive_integer("Columnas: ")
-    data = []
-    for i in range(rows):
-        row = []
-        for j in range(columns):
-            row.append(read_number(f"Valor [{i+1}][{j+1}]: "))
-        data.append(row)
-    return Matrix(data)
-
-def create_random_matrix():
-    """Crea una matriz con valores aleatorios."""
-    print("\n--- Creación aleatoria ---")
-    rows = read_positive_integer("Filas: ")
-    columns = read_positive_integer("Columnas: ")
-    minimum = read_number("Valor mínimo: ")
-    maximum = read_number("Valor máximo: ")
-    
-    if minimum > maximum:
-        print("Error: el valor mínimo no puede ser mayor que el máximo.")
-        minimum, maximum = maximum, minimum
-        print(f"Intercambiando: mínimo = {minimum}, máximo = {maximum}")
-    
-    data = [[random.uniform(minimum, maximum) for _ in range(columns)] for _ in range(rows)]
-    return Matrix(data)
-
-def display_matrix(m, name="Matriz"):
-    """Muestra una matriz con formato."""
-    print(f"\n{name} ({m.rows}x{m.columns}):")
-    print(m)
 
 def register_history(operation, result_str):
-    """Registra la operación en el archivo de historial."""
+    """Registra una operación en el archivo de historial (historial.txt).
+
+    Args:
+        operation: Descripción textual de la operación realizada.
+        result_str: Representación del resultado (matriz o escalar).
+
+    Notes:
+        Los errores de escritura se imprimen pero no detienen el programa.
+    """
     try:
         with open("historial.txt", "a", encoding="utf-8") as f:
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -277,160 +231,216 @@ def register_history(operation, result_str):
     except Exception as e:
         print(f"Error al guardar historial: {e}")
 
-def display_history():
-    """Muestra el historial de operaciones."""
-    try:
-        with open("historial.txt", "r", encoding="utf-8") as f:
-            content = f.read()
-            if content.strip():
-                print("\n" + "=" * 60)
-                print("         HISTORIAL DE OPERACIONES")
-                print("=" * 60)
-                print(content)
-            else:
-                print("El historial está vacío.")
-    except FileNotFoundError:
-        print("No hay historial aún. Realice algunas operaciones primero.")
 
-def matrix_creation_menu():
-    """Menú para seleccionar cómo crear las matrices."""
-    print("\n--- Crear Matrices ---")
-    print("1. Manual (ingresar valores uno por uno)")
-    print("2. Aleatoria (generar valores aleatorios)")
-    option = read_menu_option("Elija opción (1-2): ")
-    
-    while option not in ['1', '2']:
-        print("Error: opción no válida. Elija 1 o 2.")
-        option = read_menu_option("Elija opción (1-2): ")
-    
-    if option == '1':
-        return create_manual_matrix()
-    else:
-        return create_random_matrix()
+def parse_matrix_text(text):
+    """Convierte texto de un cuadro Tkinter en un objeto Matrix.
 
-def main_menu():
-    """Menú principal de la calculadora."""
-    print("\n" + "=" * 60)
-    print("         CALCULADORA DE MATRICES")
-    print("=" * 60)
-    print("Operaciones disponibles: Suma, Resta, Multiplicación matricial,")
-    print("Multiplicación elemento a elemento, División elemento a elemento,")
-    print("Multiplicación por escalar, Transpuesta, Determinante, Inversa, Potencia.")
+    Cada línea del texto representa una fila, y los valores se separan por
+    espacios o tabulaciones.
 
-    # Primera creación de matrices
-    print("\nDefinamos las matrices A y B:")
-    print("\n--- Matriz A ---")
-    A = matrix_creation_menu()
-    print("\n--- Matriz B ---")
-    B = matrix_creation_menu()
-    
-    print("\nMatrices creadas:")
-    display_matrix(A, "A")
-    display_matrix(B, "B")
+    Args:
+        text: Cadena con los valores de la matriz.
 
-    while True:
-        print("\n" + "-" * 60)
-        print("--- Menú de Operaciones ---")
-        print("  1. Suma (A + B)")
-        print("  2. Resta (A - B)")
-        print("  3. Multiplicación matricial (A * B)")
-        print("  4. Multiplicación elemento a elemento (A ⊙ B)")
-        print("  5. División elemento a elemento (A / B)")
-        print("  6. Multiplicación por escalar (k * A)")
-        print("  7. Transpuesta de A")
-        print("  8. Determinante de A")
-        print("  9. Inversa de A")
-        print(" 10. Potencia de A (A^n)")
-        print("  ---")
-        print("  c. Cambiar matrices (A y B)")
-        print("  h. Ver historial")
-        print("  0. Salir")
+    Returns:
+        Un objeto Matrix.
 
-        option = read_menu_option("Elija opción: ")
-
-        if option == "0":
-            print("\n¡Hasta luego!")
-            break
-
-        elif option == "c":
-            print("\n--- Crear nuevas matrices ---")
-            print("\n--- Nueva Matriz A ---")
-            A = matrix_creation_menu()
-            print("\n--- Nueva Matriz B ---")
-            B = matrix_creation_menu()
-            display_matrix(A, "A")
-            display_matrix(B, "B")
+    Raises:
+        ValueError: Si el texto está vacío o las filas no tienen el mismo
+            número de columnas.
+    """
+    if not text.strip():
+        raise ValueError("El campo de la matriz está vacío.")
+    rows = []
+    for line in text.strip().splitlines():
+        line = line.strip()
+        if not line:
             continue
+        values = [float(x) for x in line.split()]
+        rows.append(values)
+    if not rows:
+        raise ValueError("No se encontraron datos válidos en la matriz.")
+    col_count = len(rows[0])
+    for i, row in enumerate(rows):
+        if len(row) != col_count:
+            raise ValueError(
+                f"Fila {i + 1} tiene {len(row)} valores, se esperaban {col_count}."
+            )
+    return Matrix(rows)
 
-        elif option == "h":
-            display_history()
-            continue
 
-        # Manejo de operaciones
+class MatrixCalculatorApp:
+    """Interfaz gráfica (Tkinter) de la calculadora de matrices.
+
+    Permite introducir las matrices A y B, elegir una operación mediante
+    botones, mostrar el resultado y consultar el historial.
+    """
+
+    # (Etiqueta del botón, nombre del método de Matrix, ¿requiere B?)
+    OPERATIONS = [
+        ("Suma (A + B)", "add", True),
+        ("Resta (A - B)", "subtract", True),
+        ("Multiplicación (A × B)", "multiply", True),
+        ("Multiplicación escalar (k × A)", "scalar_multiply", False),
+        ("Transpuesta (Aᵀ)", "transpose", False),
+        ("Trazo (tr(A))", "trace", False),
+        ("Determinante (det(A))", "determinant", False),
+        ("Adjunta (adj(A))", "adjoint", False),
+        ("Inversa (A⁻¹)", "inverse", False),
+    ]
+
+    def __init__(self, root):
+        """Construye la ventana principal y la centra en pantalla.
+
+        Args:
+            root: Ventana raíz de Tkinter (tk.Tk()).
+        """
+        self.root = root
+        self.root.title("Calculadora de Matrices")
+        self.root.resizable(False, False)
+        self._build_ui()
+        self.root.after(50, self._center_on_screen)
+
+    def _center_on_screen(self):
+        """Centra la ventana en la pantalla tras calcular su tamaño real."""
+        self.root.update_idletasks()
+        w = self.root.winfo_reqwidth()
+        h = self.root.winfo_reqheight()
+        sw = self.root.winfo_screenwidth()
+        sh = self.root.winfo_screenheight()
+        x = (sw - w) // 2
+        y = (sh - h) // 2
+        self.root.geometry(f"{w}x{h}+{x}+{y}")
+
+    def _build_ui(self):
+        """Construye todos los widgets de la interfaz (entradas, botones, resultado)."""
+        main_frame = ttk.Frame(self.root, padding=10)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        matrix_frame = ttk.Frame(main_frame)
+        matrix_frame.pack(fill=tk.X, pady=(0, 10))
+
+        ttk.Label(matrix_frame, text="Matriz A:").grid(row=0, column=0, sticky=tk.W)
+        self.text_a = tk.Text(matrix_frame, width=30, height=8, font=("Courier", 10))
+        self.text_a.grid(row=1, column=0, padx=(0, 10))
+
+        ttk.Label(matrix_frame, text="Matriz B:").grid(row=0, column=2, sticky=tk.W)
+        self.text_b = tk.Text(matrix_frame, width=30, height=8, font=("Courier", 10))
+        self.text_b.grid(row=1, column=2)
+
+        scalar_frame = ttk.Frame(main_frame)
+        scalar_frame.pack(fill=tk.X, pady=(0, 10))
+        ttk.Label(scalar_frame, text="Escalar (k):").pack(side=tk.LEFT)
+        self.scalar_entry = ttk.Entry(scalar_frame, width=10)
+        self.scalar_entry.pack(side=tk.LEFT, padx=(5, 0))
+        self.scalar_entry.insert(0, "1.0")
+
+        ops_frame = ttk.LabelFrame(main_frame, text="Operaciones", padding=5)
+        ops_frame.pack(fill=tk.X, pady=(0, 10))
+
+        for idx, (label, _, _) in enumerate(self.OPERATIONS):
+            btn = ttk.Button(
+                ops_frame,
+                text=label,
+                command=lambda i=idx: self._execute(i),
+            )
+            btn.grid(row=idx // 3, column=idx % 3, padx=3, pady=3, sticky=tk.EW)
+
+        for col in range(3):
+            ops_frame.columnconfigure(col, weight=1)
+
+        history_btn = ttk.Button(main_frame, text="Ver historial", command=self._show_history)
+        history_btn.pack(pady=(0, 10))
+
+        result_frame = ttk.LabelFrame(main_frame, text="Resultado", padding=5)
+        result_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.result_text = tk.Text(
+            result_frame, width=60, height=10, font=("Courier", 10), state=tk.DISABLED
+        )
+        self.result_text.pack(fill=tk.BOTH, expand=True)
+
+    def _get_matrices(self):
+        """Lee y convierte los textos de A y B (sin usar). Método de utilidad."""
+        a = parse_matrix_text(self.text_a.get("1.0", tk.END))
+        b = parse_matrix_text(self.text_b.get("1.0", tk.END))
+        return a, b
+
+    def _show_result(self, text):
+        """Reemplaza el contenido del área de resultado con el texto dado."""
+        self.result_text.config(state=tk.NORMAL)
+        self.result_text.delete("1.0", tk.END)
+        self.result_text.insert(tk.END, text)
+        self.result_text.config(state=tk.DISABLED)
+
+    def _execute(self, op_index):
+        """Ejecuta la operación seleccionada según su índice en OPERATIONS.
+
+        Lee las matrices, aplica el método correspondiente, muestra y registra
+        el resultado. Los errores se muestran en el área de resultado.
+
+        Args:
+            op_index: Índice de la operación dentro de self.OPERATIONS.
+        """
+        label, method_name, needs_b = self.OPERATIONS[op_index]
         try:
-            result = None
-            operation_str = ""
-            
-            if option == "1":
-                result = A.add(B)
-                operation_str = "Suma A + B"
-            elif option == "2":
-                result = A.subtract(B)
-                operation_str = "Resta A - B"
-            elif option == "3":
-                result = A.multiply(B)
-                operation_str = "Multiplicación matricial A * B"
-            elif option == "4":
-                result = A.element_multiply(B)
-                operation_str = "Multiplicación elemento a elemento A ⊙ B"
-            elif option == "5":
-                result = A.element_divide(B)
-                operation_str = "División elemento a elemento A / B"
-            elif option == "6":
-                scalar = read_number("Ingrese el escalar (k): ")
-                result = A.scalar_multiply(scalar)
-                operation_str = f"Multiplicación por escalar {scalar} * A"
-            elif option == "7":
-                result = A.transpose()
-                operation_str = "Transpuesta de A"
-            elif option == "8":
-                det = A.determinant()
-                print(f"\nDeterminante de A: {det:.4f}")
-                register_history(f"Determinante de A", f"{det:.4f}")
-                # No hay resultado matricial para reemplazar
-                continue
-            elif option == "9":
-                result = A.inverse()
-                operation_str = "Inversa de A"
-            elif option == "10":
-                exponent = read_non_negative_integer("Ingrese el exponente (n): ")
-                result = A.power(exponent)
-                operation_str = f"Potencia A^{exponent}"
+            a = parse_matrix_text(self.text_a.get("1.0", tk.END))
+            b = parse_matrix_text(self.text_b.get("1.0", tk.END)) if needs_b else None
+
+            if method_name == "scalar_multiply":
+                try:
+                    scalar = float(self.scalar_entry.get().strip())
+                except ValueError:
+                    raise ValueError("El escalar debe ser un número válido.")
+
+            if needs_b:
+                result_matrix = getattr(a, method_name)(b)
+            elif method_name == "scalar_multiply":
+                result_matrix = a.scalar_multiply(scalar)
             else:
-                print("Error: opción no válida.")
-                continue
+                result_matrix = getattr(a, method_name)()
 
-            # Mostrar y registrar resultado (para operaciones que devuelven matriz)
-            if result is not None:
-                print("\nResultado:")
-                display_matrix(result, "Resultado")
-                register_history(operation_str, str(result))
-                
-                # Preguntar si reemplazar A o B
-                print("\n¿Desea reemplazar alguna matriz con el resultado?")
-                if read_yes_no_option("¿Reemplazar A por el resultado? (s/n): "):
-                    A = result
-                    print("A ha sido actualizada.")
-                elif read_yes_no_option("¿Reemplazar B por el resultado? (s/n): "):
-                    B = result
-                    print("B ha sido actualizada.")
+            if isinstance(result_matrix, Matrix):
+                result_str = str(result_matrix)
+                op_label = f"{label} | A: {a.rows}x{a.columns}"
+                if b is not None:
+                    op_label += f", B: {b.rows}x{b.columns}"
+                if method_name == "scalar_multiply":
+                    op_label += f", k={scalar}"
+            else:
+                result_str = f"{result_matrix:.4f}"
+                op_label = f"{label} | A: {a.rows}x{a.columns}"
 
-        except ValueError as e:
-            print(f"\nError de validación: {e}")
-        except ZeroDivisionError as e:
-            print(f"\nError matemático: {e}")
+            register_history(op_label, result_str)
+
+            display = f"{label}\n\n{result_str}"
+            self._show_result(display)
+
+        except (ValueError, ZeroDivisionError) as e:
+            self._show_result(f"Error: {e}")
         except Exception as e:
-            print(f"\nError inesperado: {e}")
+            self._show_result(f"Error inesperado: {e}")
+
+    def _show_history(self):
+        """Abre una ventana emergente con el contenido del historial.txt."""
+        win = tk.Toplevel(self.root)
+        win.title("Historial de Operaciones")
+        win.geometry("500x400")
+        text = tk.Text(win, font=("Courier", 10), state=tk.NORMAL)
+        text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
+        try:
+            with open("historial.txt", "r", encoding="utf-8") as f:
+                content = f.read()
+            if content.strip():
+                text.insert(tk.END, content)
+            else:
+                text.insert(tk.END, "El historial está vacío.")
+        except FileNotFoundError:
+            text.insert(tk.END, "No hay historial aún.")
+        text.config(state=tk.DISABLED)
+
 
 if __name__ == "__main__":
-    main_menu()
+    # Punto de entrada: crea la ventana raíz e inicia el bucle principal de la GUI.
+    root = tk.Tk()
+    app = MatrixCalculatorApp(root)
+    root.mainloop()
