@@ -11,6 +11,8 @@ class Matrix:
     (determinante, inversa, adjunta, ...).
     """
 
+    MAX_DIMENSION = 20
+
     def __init__(self, data):
         """Crea una matriz a partir de una lista de listas.
 
@@ -18,8 +20,9 @@ class Matrix:
             data: Lista de listas con los valores de cada fila.
 
         Raises:
-            ValueError: Si la matriz está vacía o las filas tienen
-                longitudes diferentes.
+            ValueError: Si la matriz está vacía, si las filas tienen
+                longitudes diferentes o si alguna dimensión supera el
+                límite permitido (MAX_DIMENSION).
         """
         if not data or not data[0]:
             raise ValueError("La matriz no puede estar vacía.")
@@ -27,6 +30,11 @@ class Matrix:
         for row in data:
             if len(row) != columns:
                 raise ValueError("Todas las filas deben tener la misma cantidad de columnas.")
+        if len(data) > self.MAX_DIMENSION or columns > self.MAX_DIMENSION:
+            raise ValueError(
+                f"Las dimensiones no pueden superar "
+                f"{self.MAX_DIMENSION}x{self.MAX_DIMENSION}."
+            )
         self.data = [row[:] for row in data]
         self.rows = len(self.data)
         self.columns = len(self.data[0])
@@ -117,21 +125,27 @@ class Matrix:
         return sum(self.data[i][i] for i in range(self.rows))
 
     def determinant(self):
-        """Calcula el determinante por expansión de cofactores (recursivo).
+        """Calcula el determinante mediante descomposición LU (O(n³)).
+
+        Usa eliminación gaussiana con pivoteo parcial, por lo que es rápida
+        incluso para matrices de hasta MAX_DIMENSION (20x20). A diferencia de
+        la expansión de cofactores (O(n!)), no se vuelve inviable al crecer.
 
         Raises:
             ValueError: Si la matriz no es cuadrada.
         """
         if not self.is_square():
             raise ValueError("La matriz debe ser cuadrada para calcular el determinante.")
-        return self._determinant_recursive(self.data)
+        return self._determinant_lu(self.data)
 
     @staticmethod
-    def _determinant_recursive(matrix):
-        """Función auxiliar recursiva para calcular el determinante.
+    def _determinant_lu(matrix):
+        """Función auxiliar para calcular el determinante por descomposición LU.
 
-        Aplica expansión de cofactores sobre la primera fila. Es un método
-        estático porque no depende del estado de ninguna instancia.
+        Aplica eliminación gaussiana con pivoteo parcial sobre una copia. El
+        determinante es el producto de la diagonal de U ajustado por el signo
+        de los intercambios de filas. Es un método estático porque no depende
+        del estado de ninguna instancia.
 
         Args:
             matrix: Lista de listas (datos) de la matriz cuadrada.
@@ -140,21 +154,28 @@ class Matrix:
             El determinante como número flotante.
         """
         n = len(matrix)
-        if n == 1:
-            return matrix[0][0]
-        if n == 2:
-            return matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0]
-        det = 0.0
-        for j in range(n):
-            submatrix = [
-                [matrix[i][k] for k in range(n) if k != j]
-                for i in range(1, n)
-            ]
-            det += matrix[0][j] * ((-1) ** j) * Matrix._determinant_recursive(submatrix)
+        work = [row[:] for row in matrix]
+        det = 1.0
+        for i in range(n):
+            pivot_row = max(range(i, n), key=lambda r: abs(work[r][i]))
+            if abs(work[pivot_row][i]) < 1e-12:
+                return 0.0
+            if pivot_row != i:
+                work[i], work[pivot_row] = work[pivot_row], work[i]
+                det = -det
+            det *= work[i][i]
+            for r in range(i + 1, n):
+                factor = work[r][i] / work[i][i]
+                if factor != 0.0:
+                    for c in range(i + 1, n):
+                        work[r][c] -= factor * work[i][c]
         return det
 
     def adjoint(self):
         """Calcula la matriz adjunta (transpuesta de la matriz de cofactores).
+
+        Internamente usa el determinante por descomposición LU (O(n³)), por lo
+        que también es eficiente con matrices grandes.
 
         Raises:
             ValueError: Si la matriz no es cuadrada.
@@ -171,7 +192,7 @@ class Matrix:
                     [self.data[r][c] for c in range(n) if c != j]
                     for r in range(n) if r != i
                 ]
-                cofactors[i][j] = ((-1) ** (i + j)) * Matrix._determinant_recursive(minor)
+                cofactors[i][j] = ((-1) ** (i + j)) * Matrix._determinant_lu(minor)
         return Matrix(cofactors).transpose()
 
     def inverse(self):
